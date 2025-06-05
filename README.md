@@ -123,11 +123,11 @@ The input file (e.g., `curl_command.txt`) should be a plain text file containing
 **Example `curl_command.txt`:**
 
 ```bash
-curl '[https://api.example.com/submit](https://api.example.com/submit)' \
+curl 'https://api.example.com/submit' \
   -H 'Accept: application/json' \
-  -H 'Content-Type: application/x-www-form-urlencoded' \
-  --data-raw $'field1=value1&field2=\\u0048ello\\x20World%21%0AThis\\x20is\\x20a\\x20test\\nNextLineHere%0D%0A%5COctal\\101' \
-  --compressed
+  -H 'Content-Type: application/json' \
+  -H 'Content-Encoding: gzip' \
+  --data-raw $'\x1f\x8b\x08\x00\xd5\x7f\x41\x68\x02\xff\x15\x8d\xbd\x0a\x02\x31\x10\x84\x5f\x65\xdc\x3a\x11\xfc\x6b\x7c\x01\x2d\xac\x44\xb1\x10\x8b\x90\xcb\x9d\x81\x9c\x09\xd9\x3d\x04\x8f\x7b\x77\xb3\x30\xd5\xcc\x37\x33\x33\x8d\x81\xd9\x0d\x81\x8e\xa0\x73\x48\x29\x1b\x9c\x7e\xb1\xe0\x91\x6b\xea\x56\x64\x40\x2c\x4e\x26\xd6\x9c\x27\xef\x1b\xad\x66\xe7\xc4\x35\x6b\xa6\x28\x61\xd4\xf0\xb9\x31\xd8\x1a\xec\x0c\xf6\x06\x87\x97\x22\x81\x7d\x8d\x45\x62\xfe\x68\xf9\xf6\x8e\x8c\x26\x07\x09\x2c\xc8\x3d\x06\xfd\xf1\x79\x2c\xb5\x8d\x36\x0a\x7d\xae\xf0\xf7\xeb\x05\xd6\xea\xbe\xad\xee\xbb\xa6\x65\xf9\x03\x0c\xdd\x73\x10\xa4\x00\x00\x00'
 ```
 (Note: The actual data inside $'...' would typically be more complex, potentially gzipped, and representing a JSON structure after decoding and decompression).
 
@@ -139,13 +139,19 @@ The output file (e.g., `decoded_curl_command.txt`) will contain the final proces
 
 ```json
 {
-  "key": "value",
-  "message": "Hello World!",
-  "details": [
-    "item1",
-    "item2"
-  ]
-} 
+  "data": {
+    "description": "This is a test of gzip compression for cURL --data-raw.",
+    "items": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "message": "Hello, Gzip World!",
+  "status": "success"
+}
 ```
 ## Workflow
 

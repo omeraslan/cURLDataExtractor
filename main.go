@@ -317,32 +317,73 @@ func main() {
 		fmt.Println(reprBytes(decodedData))
 	}
 
-	// Decompress the gzipped data
-	decompressedData, err := decompressGzipData(decodedData)
-	if err != nil {
-		log.Fatalf("The data is not in gzip format or is corrupted: %v", err)
-	}
-	fmt.Println("Decompressed data (first 100 bytes):")
-	if len(decompressedData) > 100 {
-		fmt.Println(reprBytes(decompressedData[:100]))
+	// *** DECOMPRESSION LOGIC MODIFICATION START ***
+	// Check if the data *might* be gzip compressed by looking at the Content-Encoding header
+	// This is a common way to determine if decompression is needed.
+	// For this specific cURL, we know it's not gzipped, so we'll just skip the decompression.
+	// In a more general solution, you'd parse headers to make this decision.
+	// For now, we'll assume if it's not JSON, it's URL-encoded form data.
+
+	var finalProcessedData []byte
+
+	// You could add logic here to check for 'Content-Encoding: gzip' header in the curl command.
+	// For this specific problem, we know it's not gzipped.
+
+	// Try to decompress only if it seems like gzipped data
+	// A simple heuristic (not foolproof) is to check for gzip magic bytes (0x1f 0x8b)
+	if len(decodedData) >= 2 && decodedData[0] == 0x1f && decodedData[1] == 0x8b {
+		log.Println("Detected potential gzip header. Attempting decompression.")
+		decompressedData, err := decompressGzipData(decodedData)
+		if err != nil {
+			// Log the error but don't fatally exit, in case it's not gzip after all.
+			log.Printf("Warning: Decompression failed, data might not be gzipped or is corrupted: %v", err)
+			finalProcessedData = decodedData // Use original data if decompression fails
+		} else {
+			finalProcessedData = decompressedData
+
+			fmt.Println("Decompressed data (first 100 bytes):")
+			if len(finalProcessedData) > 100 {
+				fmt.Println(reprBytes(finalProcessedData[:100]))
+			} else {
+				fmt.Println(reprBytes(finalProcessedData))
+			}
+		}
 	} else {
-		fmt.Println(reprBytes(decompressedData))
+		log.Println("Data does not appear to be gzip compressed (missing magic bytes). Skipping decompression.")
+		finalProcessedData = decodedData // Use the decoded data directly
+	}
+	// *** DECOMPRESSION LOGIC MODIFICATION END ***
+
+	// Convert the processed data to a string (assuming UTF-8, as in the Python script)
+	// If it was gzipped, this is the decompressed string.
+	// If not gzipped, this is the raw decoded string.
+	processedString := string(finalProcessedData)
+	fmt.Println("Processed string (first 100 characters):")
+	if len(processedString) > 100 {
+		fmt.Printf("%q\n", processedString[:100])
+	} else {
+		fmt.Printf("%q\n", processedString)
 	}
 
-	// Convert the decompressed data to a string (assuming UTF-8, as in the Python script)
-	decompressedString := string(decompressedData)
-	fmt.Println("Decompressed string (first 100 characters):")
-	if len(decompressedString) > 100 {
-		fmt.Printf("%q\n", decompressedString[:100])
-	} else {
-		fmt.Printf("%q\n", decompressedString)
-	}
+	// For URL-encoded data, we typically don't parse it as JSON directly.
+	// We would instead parse it using net/url.ParseQuery.
+	// Since your original code assumed JSON, we'll add a check.
 
-	// Parse the JSON data
+	// Try to parse as JSON. If it fails, treat it as plain text or URL-encoded.
 	var jsonData interface{} // To accept any valid JSON structure
-	err = json.Unmarshal([]byte(decompressedString), &jsonData)
+	err = json.Unmarshal([]byte(processedString), &jsonData)
 	if err != nil {
-		log.Fatalf("Error in parsing JSON data: %v\nDecompressed string that failed to parse (up to 500 chars):\n%s", err, decompressedString[:min(len(decompressedString), 500)])
+		log.Printf("Warning: Data is not valid JSON, treating as plain text or URL-encoded: %v", err)
+		// If it's not JSON, write the raw processed string to the output file.
+		// Or you could add logic here to specifically parse URL-encoded data.
+
+		fmt.Println("Saving raw processed string to output file.")
+		err = os.WriteFile(*outputFile, finalProcessedData, 0644)
+		if err != nil {
+			log.Fatalf("Error saving processed data to file %s: %v", *outputFile, err)
+		}
+		fmt.Printf("Processed data (not JSON) has been saved to %s\n", *outputFile)
+		return // Exit the program here if it's not JSON
 	}
 
 	// Pretty-print the JSON data (like indent=2 in Python)
@@ -360,5 +401,3 @@ func main() {
 	}
 	fmt.Printf("Decoded data has been saved to %s\n", *outputFile)
 }
-
-// min is a helper function to find the minimum of two integers.
